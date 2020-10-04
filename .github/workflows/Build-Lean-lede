@@ -1,0 +1,55 @@
+# This is a basic workflow to help you get started with Actions
+
+name: Build-Lean-lede
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+      paths:
+       - '.github/workflows/Build-Lean-lede.yml'
+       -  'lean-lede/rpi/.config'
+  schedule:
+        - cron: 0 */4 * * *
+ jobs:         
+  Raspberry3:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Prepare environment.
+      env:
+          DEBIAN_FRONTEND: noninteractive
+      run: |
+        bash <(curl -fsSL https://raw.githubusercontent.com/1orz/My-action/master/lean-lede/prenv.sh)
+        
+    - name: Clone Source
+      run: |
+        git clone https://github.com/coolsnowwolf/lede
+        
+    - name: Download and Load custom configuration
+      run: |
+        cd lede
+        curl -fsSL https://raw.githubusercontent.com/1orz/My-action/master/lean-lede/rpi/.config >.config
+        bash <(curl -fsSL https://raw.githubusercontent.com/1orz/My-action/master/lean-lede/diy.sh)
+        make defconfig
+        
+    - name: Download package
+      run: |
+        cd lede
+        make download -j8
+        find dl -size -1024c -exec ls -l {} \;
+        find dl -size -1024c -exec rm -f {} \;
+        
+    - name: Multi-core or Single core compile
+      run: |
+        cd lede
+        echo -e "$(nproc) thread compile"
+        sudo df -h
+        make -j$(nproc) || make -j1 V=s
+        sudo df -h
+        make -j1 V=s
+        sudo df -h
+        
+  
